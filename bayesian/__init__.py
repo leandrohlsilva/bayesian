@@ -8,11 +8,11 @@ def classify(instance, classes_instances, extractor=str.split, priors=None):
     into a list of events/features to be analyzed, which defaults to a simple
     word extraction.
     """
-    priors = priors or {class_: 1.0 for class_ in classes_instances}
+    priors = priors or {class_: len(classes_instances[class_]) for class_ in classes_instances}
     model = Bayes.extract_events_odds(classes_instances, extractor)
     b = Bayes(priors)
     b.update_from_events(extractor(instance), model)
-    return b.most_likely()
+    return b.normalized()
 
 def classify_file(file_, folders, extractor=str.split):
     """
@@ -127,6 +127,24 @@ class Bayes(list):
     Class for Bayesian probabilistic evaluation through creation and update of
     beliefs. This is meant for abstract reasoning, not just classification.
     """
+
+    @staticmethod
+    def TOTAL_PREFIX():
+        return 'BAYES_TOTAL_PREFIX_'
+
+    @staticmethod
+    def LENGTH_PREFIX():
+        return 'BAYES_LENGTH_PREFIX_'
+
+    @staticmethod
+    def model_length(events_odds):
+        if (Bayes.LENGTH_PREFIX() in events_odds):
+            return events_odds[Bayes.LENGTH_PREFIX()][0]
+
+        events_odds[Bayes.LENGTH_PREFIX()][0] = len(events_odds.keys())
+        return events_odds[Bayes.LENGTH_PREFIX()][0]
+
+
     @staticmethod
     def extract_events_odds(classes_instances, event_extractor=str.split):
         """
@@ -143,6 +161,7 @@ class Bayes(list):
             for instance in instances:
                 for event in event_extractor(instance):
                     events_odds[event][class_] += 1
+                    events_odds[Bayes.TOTAL_PREFIX()][class_] += 1
 
         return events_odds
 
@@ -246,7 +265,9 @@ class Bayes(list):
         Modifies the instance and returns itself.
         Ex: [.5, .5].update([.9, .1]) becomes [.45, .05] (non normalized)
         """
-        self[:] = (self * self._cast(event)).normalized()
+        print(' * {} '.format(self._cast(event)), end='')
+        self[:] = (self * self._cast(event))
+        #print(self)
         return self
 
     def update_from_events(self, events, events_odds):
@@ -258,8 +279,20 @@ class Bayes(list):
         """
         for event in events:
             if event in events_odds:
-                self.update(events_odds[event])
+                print("{} ".format(self), end='')
+                self.update(self.laplacian_smooth(event, events_odds, 1))
+                print('')
+                #self.update(events_odds[event])
         return self
+
+    def laplacian_smooth(self, event, events_odds, k):
+        smoothed = []
+        for l in self.labels:
+            numerator = (events_odds[event][l] + k)
+            denominator = (events_odds[Bayes.TOTAL_PREFIX()][l] + k*Bayes.model_length(events_odds))
+            smoothed.append(numerator/denominator)
+            #print("({},{}) - {}/{} = {}".format(self.labels, l, numerator, denominator, smoothed))
+        return self._cast(smoothed)
 
     def update_from_tests(self, tests_results, odds):
         """
