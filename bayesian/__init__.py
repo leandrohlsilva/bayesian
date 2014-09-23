@@ -8,7 +8,7 @@ def classify(instance, classes_instances, extractor=str.split, priors=None):
     into a list of events/features to be analyzed, which defaults to a simple
     word extraction.
     """
-    priors = priors or {class_: len(classes_instances[class_]) for class_ in classes_instances}
+    priors = priors or {class_: 1.0 for class_ in classes_instances}
     model = Bayes.extract_events_odds(classes_instances, extractor)
     b = Bayes(priors)
     b.update_from_events(extractor(instance), model)
@@ -265,7 +265,7 @@ class Bayes(list):
         Modifies the instance and returns itself.
         Ex: [.5, .5].update([.9, .1]) becomes [.45, .05] (non normalized)
         """
-        print(' * {} '.format(self._cast(event)), end='')
+        #print(' * {} '.format(self._cast(event)), end='')
         self[:] = (self * self._cast(event))
         #print(self)
         return self
@@ -279,10 +279,13 @@ class Bayes(list):
         """
         for event in events:
             if event in events_odds:
-                print("{} ".format(self), end='')
+                #print("{}: {}".format(event, self), end='')
                 self.update(self.laplacian_smooth(event, events_odds, 1))
-                print('')
+                #print('')
                 #self.update(events_odds[event])
+            else:
+                #print('doesnt exist {}'.format(event))
+                pass
         return self
 
     def laplacian_smooth(self, event, events_odds, k):
